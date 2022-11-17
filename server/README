@@ -11,7 +11,7 @@ make
 g++
 
 
-This is a C++20 makefile project [DESIGNED FOR LINUX SYSTEMS]. To compile go to the working directory and type: make
+This is a C++20 makefile project [DESIGNED FOR LINUX SYSTEMS ON A LINUX SYSTEM]. To compile go to the working directory and type: make
     This will compile program.cpp which is the C++ part of this program
     client.sh will launch the C++ code along with TCPDUMP at the same time
 

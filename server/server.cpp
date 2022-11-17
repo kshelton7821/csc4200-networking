@@ -30,6 +30,7 @@ Revisions:
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/select.h>
+#include <vector>
 
 using namespace std;
 
@@ -40,49 +41,43 @@ int main(int argc, char *argv[])
     try
     {
     //Setup Variables
-    int sock = 0, valread, server_fd, rv;
+    int new_socket, valread, server_fd, rv;
     uint16_t port;
     char answer;
-    ofstream outfile;
-    struct sockaddr_in serv_addr;
-    string temp, temp3;
-    char buffer[1024] = { 0 };
-    fd_set set;
-    struct timeval timeout;
+    ifstream inFile;
+    ofstream outFile;
+    struct sockaddr_in address;
+    int opt = 1;
+    int addrlen = sizeof(address);
+    char buffer[1024] = {0};
+    vector<string> messages;
+    bool cont = true;
 
-
-
-
-    //1. Check inputs
-    if (argc != 4)
+    //Input Verification
+    if(argc != 3) 
     {
         cout << "Error: Wrong input arguments, please enter:" << endl
-        << "./client ADDRESS PORT LOGFILE" << endl;
+        << "./server PORT LOGFILE" << endl;
         return -1;
     }
-    for (int i = 0; i <= strlen(argv[2]) - 1; i++)
+    for (int i = 0; i <= strlen(argv[1]) - 1; i++)
     {
-        if(isdigit(argv[2][0])) 
+        if(isdigit(argv[1][i])) 
         {
             //Good
         }
         else
         {
             cout << "Error: Wrong input arguments, please enter:" << endl
-            << "./client ADDRESS PORT LOGFILE" << endl;
+            << "./server PORT LOGFILE" << endl;
             return -1;
         }
     }
-
-    string temp2 = argv[1];
-
-    //1 & 4. Take user input
     cout << "Initial Variables have been auto checked as valid" << endl
     << "Please validate if these are correct:" << endl
-    << "Address: " << argv[1] << endl
-    << "Port: " << argv[2] << endl
-    << "Logfile Name: " << argv[3] << endl << endl;
-
+    << "Port: " << argv[1] << endl
+    << "Logfile Name: " << argv[2] << endl << endl;
+    //Verify Input
     do
     {
         cout << "Please enter Y/n: " << endl;
@@ -97,86 +92,96 @@ int main(int argc, char *argv[])
     }
     else
     {
-        port = stoi(argv[2]);
+        port = stoi(argv[1]);
     }
 
-    cout << "What message would you like to send to the server?" << endl;
-    cin >> temp;
-    cin.clear();
 
-    const char* message = temp.c_str();
-    temp3 = "./launchTCP.sh " + temp2 + " &";
-    const char* launcher = temp3.c_str();
-    //Launch TCPDUMP
-    //system(launcher);
-
-    //2. Create Socket Object
-    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0 )
+    //Load Messages
+    inFile.open("quotes.txt", ios::in);
+    if(!inFile.good()) 
     {
-        cout << endl << "Socket Creation Error, exiting program" << endl;
-        return -1;
+        cout << "Error finding quotes file, terminating program" << endl;
+         return -1;
     }
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_port = htons(port);
-
-    //Convert address to binary
-    if (inet_pton(AF_INET, argv[1], &serv_addr.sin_addr) <= 0)
+    string temp;
+    while(getline(inFile, temp))
     {
-        cout << "Invalid Address Error, terminating program" << endl;
+        messages.push_back(temp);
+    }
+    inFile.close();
+    int size = messages.size();
+    //Create Socket Object
+    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+    {
+        cout << "Socket Creation Error" << endl;
         return -1;
     }
 
-    //3. Connect to server
-    if ((server_fd = connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr))) < 0)
+    //Attach Port to Socket
+    if(setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt)))
     {
-        cout << "Connection Failed Error, terminating program" << endl;
+        cout << "Error attaching port to socket" << endl;
         return -1;
     }
-    cout << "Connection Successfull" << endl;
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = INADDR_ANY;
+    address.sin_port = htons(port);
 
-    FD_ZERO(&set);
-    FD_SET(sock, &set);
-
-    timeout.tv_sec = 5;
-    timeout.tv_usec = 0;
-
-
-
-    //5. Send Message
-    send(sock, message, strlen(message), 0 );
-    cout << "Message Sent to server" << endl;
-    //6. Recieve Message / Check for recieve
-    rv = select(sock + 1, &set, NULL, NULL,  &timeout);
-    if(rv == -1)
+    //Bind Socket
+    if (bind(server_fd, (struct sockaddr*)&address, sizeof(address)) < 0)
     {
-        cout << "Error has occured, terminating program" << endl;
+        cout << "Error binding socket" << endl;
         return -1;
     }
-    else if(rv == 0)
-    {
-        cout << "Timeout has occured, no message recieved, terminating program" << endl;
-        return -1;
-    }
-    else
-    {
-       valread = read(sock, buffer, 1024); 
-    }
 
-    cout << "Message Recieved from Server:" << endl
-    << buffer << endl;
-    //7. Save Message
-    outfile.open(argv[3], ios_base::app | ios_base::out);
-    if(outfile.fail())
+    int counter = 0;
+    //Main Loop for listening
+    do
     {
-        cout << "Error Finding file, terminating program" << endl;
-        return -1;
-    }
-    outfile << buffer << endl;
-    outfile.close();
+        //Listen for packets, max queue 3
+        if (listen(server_fd, 3) < 0) 
+        {
+            cout << "Listening Error" << endl;
+            return -1;
+        }
+        //Get first connection from queue
+        if ((new_socket = accept(server_fd, (struct sockaddr*)&address, (socklen_t*)&addrlen)) < 0)
+        {
+            cout << "Packet Queue Error" << endl;
+            return -1;
+        }
 
+        //Read message from client
+        valread = read(new_socket, buffer, 1024);
+        cout << "Message Recieved:" << endl
+        << buffer << endl << endl;
+        string temp = buffer;
+        if(temp.find("network") != string::npos)
+        {
+            //Save message to file
+            outFile.open(argv[2], ios_base::app | ios_base::out);
+            if(outFile.fail())
+            {
+                cout << "Error finding file, terminating program" << endl;
+                return -1;
+            }
+            outFile << buffer << endl;
+            outFile.close();
 
-    //8.Close Socket
-    close(server_fd);
+            //Get Random Message
+            int ranNum = rand()%30;
+            //Send Reply
+            
+        }
+        else
+        {
+
+        }
+    } while (cont);
+    
+    
+
+    
 
     return 0; 
     }
