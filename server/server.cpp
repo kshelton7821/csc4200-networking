@@ -38,10 +38,9 @@ using namespace std;
 
 int main(int argc, char *argv[])
 {
-    try
-    {
+
     //Setup Variables
-    int new_socket, valread, server_fd, rv;
+    int new_socket, valread, server_fd, rv, MAX_ITERATIONS;
     uint16_t port;
     char answer;
     ifstream inFile;
@@ -51,16 +50,39 @@ int main(int argc, char *argv[])
     int addrlen = sizeof(address);
     char buffer[1024] = {0};
     vector<string> messages;
-    bool cont = true;
+    bool cont = true, iterations = false;
 
     //Input Verification
-    if(argc != 3) 
+    if(argc == 3) 
+    {
+        //Good
+        iterations = false;
+    }
+    else if(argc == 4)
+    {
+        //Good
+        for (int i = 0; i < strlen(argv[3]); i++)
+        {
+            if(isdigit(argv[3][i])) 
+            {
+                //Good
+                iterations = true;
+            }
+            else
+            {
+                cout << "Error: Wrong input arguments, please enter:" << endl
+                << "./start PORT LOGFILE RUN-ITERATIONS(OPTIONAL)" << endl;
+                return -1;
+            }
+        }
+    }
+    else
     {
         cout << "Error: Wrong input arguments, please enter:" << endl
-        << "./server PORT LOGFILE" << endl;
+        << "./start PORT LOGFILE RUN-ITERATIONS(OPTIONAL)" << endl;
         return -1;
     }
-    for (int i = 0; i <= strlen(argv[1]) - 1; i++)
+    for (int i = 0; i < strlen(argv[1]); i++)
     {
         if(isdigit(argv[1][i])) 
         {
@@ -69,14 +91,22 @@ int main(int argc, char *argv[])
         else
         {
             cout << "Error: Wrong input arguments, please enter:" << endl
-            << "./server PORT LOGFILE" << endl;
+            << "./start PORT LOGFILE RUN-ITERATIONS(OPTIONAL)" << endl;
             return -1;
         }
     }
     cout << "Initial Variables have been auto checked as valid" << endl
     << "Please validate if these are correct:" << endl
     << "Port: " << argv[1] << endl
-    << "Logfile Name: " << argv[2] << endl << endl;
+    << "Logfile Name: " << argv[2] << endl;
+    if(iterations)
+    {
+        cout << "Run Iterations: " << argv[3] << endl << endl;
+    }
+    else
+    {
+        cout << "Run Iterations: " << "Unlimited" << endl << endl;
+    }
     //Verify Input
     do
     {
@@ -93,6 +123,7 @@ int main(int argc, char *argv[])
     else
     {
         port = stoi(argv[1]);
+        MAX_ITERATIONS = stoi(argv[3]);
     }
 
 
@@ -101,7 +132,7 @@ int main(int argc, char *argv[])
     if(!inFile.good()) 
     {
         cout << "Error finding quotes file, terminating program" << endl;
-         return -1;
+        return -1;
     }
     string temp;
     while(getline(inFile, temp))
@@ -150,44 +181,49 @@ int main(int argc, char *argv[])
             cout << "Packet Queue Error" << endl;
             return -1;
         }
-
+        //Reset Buffer
+        memset(buffer, 0, sizeof(buffer));
         //Read message from client
         valread = read(new_socket, buffer, 1024);
         cout << "Message Recieved:" << endl
         << buffer << endl << endl;
         string temp = buffer;
+        //Save message to file
+        outFile.open(argv[2], ios_base::app | ios_base::out);
+        if(outFile.fail())
+        {
+            cout << "Error finding file, terminating program" << endl;
+            return -1;
+        }
+        outFile << buffer << endl;
+        outFile.close();
         if(temp.find("network") != string::npos)
         {
-            //Save message to file
-            outFile.open(argv[2], ios_base::app | ios_base::out);
-            if(outFile.fail())
-            {
-                cout << "Error finding file, terminating program" << endl;
-                return -1;
-            }
-            outFile << buffer << endl;
-            outFile.close();
-
+            //Increase Count
+            counter++;
             //Get Random Message
             int ranNum = rand()%30;
+            const char* message = messages[ranNum].c_str();
             //Send Reply
-            
+            cout << "Sending Message: " << message << endl;
+            cout << "Message Count: " << counter << endl << endl;
+            send(new_socket, message, strlen(message), 0);
         }
         else
         {
-
+            //Increase Count
+            counter++;
+            //Bad message
+            cout << "Bad message recieved! Not sending a Reply" << endl;
+            cout << "Message Count: " << counter << endl << endl;
+        }
+        if(iterations) 
+        {
+            if (counter == MAX_ITERATIONS)
+            {
+                cont = false;
+            }
         }
     } while (cont);
-    
-    
-
-    
-
-    return 0; 
-    }
-    catch(const exception& e)
-    {
-        cerr << e.what() << endl;
-        return -1;
-    }
+    return 0;
 }
