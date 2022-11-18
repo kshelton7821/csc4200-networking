@@ -101,8 +101,8 @@ int main(int argc, char *argv[])
     }
 
     cout << "What message would you like to send to the server?" << endl;
-    cin >> temp;
-    cin.clear();
+    getline(cin,temp);
+    getline(cin,temp);
 
     const char* message = temp.c_str();
     temp3 = "./launchTCP.sh " + temp2 + " &";
