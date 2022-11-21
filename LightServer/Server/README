@@ -1,0 +1,38 @@
+This zip folder contains:
+1. program.cpp
+2. logfile
+3. makefile
+4. client.sh
+5. project1.pcap
+
+REQUIRED DEPENDENCIES:
+TCPDUMP
+make
+g++
+
+
+This is a C++20 makefile project [DESIGNED FOR UNIX SYSTEMS ON A UNIX SYSTEM].
+    server.cpp is the C++ part of the program which must be compiled first
+    start.sh will compile and launch the C++ code along with TCPDUMP at the same time
+
+To run simply invoke: ./start.sh <PORT> <LOGFILE-NAME> <Run-Iterations>(optional)
+NOTE: Couldn't get flag implementation to work, so please use arguments as shown above
+
+NOTE2: Please create a file that is the name of your logfile supplied to the program. The program
+    will look for a file by that name and exit if none found.
+
+NOTE3: New input argument, <Run-Iterations>. If nothing is put here server will run indefinitely
+    The user can enter a number of packets to recieve, after the limit is hit the server will exit gracefully
+    Otherwise the only way to stop is [CTRL]+[C]
+
+How to use:
+
+Steps to run are:
+1. Extract project1.tar.xz
+2. run: sudo chmod u+x start.sh
+4. run: touch <LOGFILE-NAME>
+5. Launch: ./start.sh <PORT> <LOGFILE-NAME> <Run-Iterations>(optional)
+
+Documentation:
+https://www.geeksforgeeks.org/socket-programming-cc/
+https://www.geeksforgeeks.org/socket-programming-in-cc-handling-multiple-clients-on-server-without-multi-threading/?ref=lbp

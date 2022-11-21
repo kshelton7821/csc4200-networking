@@ -12,7 +12,7 @@ Abstract: This program is a server program that allows
     The program will then await the clients response.
 
 Revisions:
-01ks - November 17th, 2020 - Original
+01ks - November 20th, 2020 - Original
 */
 #include <stdio.h>
 #include <string.h>
@@ -26,6 +26,7 @@ Revisions:
 #include <fcntl.h>
 #include <sys/select.h>
 #include <vector>
+#include "packets.h"
 
 using namespace std;
 
@@ -33,7 +34,6 @@ using namespace std;
 
 int main(int argc, char *argv[])
 {
-
     //Setup Variables
     int new_socket, valread, server_fd, rv, MAX_ITERATIONS;
     uint16_t port;
