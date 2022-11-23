@@ -17,6 +17,7 @@ Revisions:
 #include <stdio.h>
 #include <string.h>
 #include <iostream>
+#include <sstream>
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -26,6 +27,7 @@ Revisions:
 #include <fcntl.h>
 #include <sys/select.h>
 #include <vector>
+#include <algorithm>
 #include "packets.h"
 
 using namespace std;
@@ -38,14 +40,42 @@ int main(int argc, char *argv[])
     int new_socket, valread, server_fd, rv, MAX_ITERATIONS;
     uint16_t port;
     char answer;
-    ifstream inFile;
     ofstream outFile;
     struct sockaddr_in address;
     int opt = 1;
     int addrlen = sizeof(address);
     char buffer[1024] = {0};
-    vector<string> messages;
     bool cont = true, iterations = false;
+    string packetPiece;
+    Packet recievedPacket;
+
+    string temp = "17;1;5;HELLO";
+    istringstream ss(temp);
+    //Version
+    getline(ss, packetPiece, ';');
+    recievedPacket.version = stoul(packetPiece, NULL, 10);
+    //Type
+    getline(ss, packetPiece, ';');
+    recievedPacket.type = stoul(packetPiece, NULL, 10);
+    //Length
+    getline(ss, packetPiece, ';');
+    recievedPacket.length = stoul(packetPiece, NULL, 10);
+    //Message
+    getline(ss, packetPiece, ';');
+    memset(recievedPacket.message, 0, size(recievedPacket.message));
+    copy(packetPiece.begin(), packetPiece.end(), begin(recievedPacket.message));
+
+    cout << recievedPacket.version << endl;
+    cout << recievedPacket.type << endl;
+    cout << recievedPacket.length << endl;
+    cout << recievedPacket.message << endl;
+
+
+
+
+    while(1);
+
+    //BLOCK
 
     //Input Verification
     if(argc == 3) 
@@ -122,20 +152,6 @@ int main(int argc, char *argv[])
     }
 
 
-    //Load Messages
-    inFile.open("quotes.txt", ios::in);
-    if(!inFile.good()) 
-    {
-        cout << "Error finding quotes file, terminating program" << endl;
-        return -1;
-    }
-    string temp;
-    while(getline(inFile, temp))
-    {
-        messages.push_back(temp);
-    }
-    inFile.close();
-    int size = messages.size();
     //Create Socket Object
     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
     {
@@ -178,11 +194,28 @@ int main(int argc, char *argv[])
         }
         //Reset Buffer
         memset(buffer, 0, sizeof(buffer));
+
+
         //Read message from client
-        valread = read(new_socket, buffer, 1024);
-        cout << "Message Recieved:" << endl
-        << buffer << endl << endl;
+        valread = read(new_socket, buffer, sizeof(buffer));
         string temp = buffer;
+        istringstream ss(temp);
+        //Version
+        getline(ss, packetPiece, ';');
+        recievedPacket.version = stoul(packetPiece, NULL, 10);
+        //Type
+        getline(ss, packetPiece, ';');
+        recievedPacket.type = stoul(packetPiece, NULL, 10);
+        //Length
+        getline(ss, packetPiece, ';');
+        recievedPacket.length = stoul(packetPiece, NULL, 10);
+        //Message
+        getline(ss, packetPiece, ';');
+        memset(recievedPacket.message, 0, size(recievedPacket.message));
+        copy(packetPiece.begin(), packetPiece.end(), begin(recievedPacket.message));
+        //Output to screen
+        cout << "Recieved Connection from (IP,PORT): (" << inet_ntoa(address.sin_addr) << ", " << ntohs(address.sin_port) << ")" << endl;
+        cout << "Recieved Data: version: " << recievedPacket.version << " message_type: " << recievedPacket.type << " length: " << recievedPacket.length << endl;
         //Save message to file
         outFile.open(argv[2], ios_base::app | ios_base::out);
         if(outFile.fail())
@@ -192,20 +225,23 @@ int main(int argc, char *argv[])
         }
         outFile << buffer << endl;
         outFile.close();
-        if(temp.find("network") != string::npos)
+        if(recievedPacket.version == 17)
         {
-            //Increase Count
-            counter++;
-            //Get Random Message
-            int ranNum = rand()%30;
-            const char* message = messages[ranNum].c_str();
+            //Begin 2nd stage
+            recievedPacket.version = 17;
+            recievedPacket.type = 1;
+            temp = "HELLO";
+            copy(temp.begin(),temp.end(), size(temp));
+            recievedPacket.length = size(temp);
             //Send Reply
-            cout << "Sending Message: " << message << endl;
+            cout << "Sending Message: " << "HELLO" << endl;
             cout << "Message Count: " << counter << endl << endl;
-            send(new_socket, message, strlen(message), 0);
+            //send(new_socket, message, strlen(message), 0);
         }
         else
         {
+            //Failed 1st stage
+
             //Increase Count
             counter++;
             //Bad message
@@ -220,5 +256,8 @@ int main(int argc, char *argv[])
             }
         }
     } while (cont);
+    //Shutdown
+    close(new_socket);
+    shutdown(server_fd, SHUT_RDWR);
     return 0;
 }
