@@ -8,20 +8,17 @@ Returns: A logfile containing message from server
 Abstract: This program is a client program that allows
     a user to enter a server ip, a port, and a logfile name at launch.
     It then will valilate the users input. At that point the program
-    will then take the users message, verify message, and finally send.
+    will then take the users command and then finally send.
     The program will then await the servers response.
 
-    Note: Order of execution specified by ProjectAssignment1 has been changed for 
-        small optimizations during connection to shorten connection time
 
 Revisions:
-01ks - October 26th, 2022 - Original
-02ks - October 27th, 2022 - Finish Parts 4 -- 6
-03ks - October 27th, 2022 - Cleanup code
+01ks - November 20th, 2020 - Original
 */
 #include <stdio.h>
 #include <string.h>
 #include <iostream>
+#include <sstream>
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -30,6 +27,10 @@ Revisions:
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/select.h>
+#include <vector>
+#include <algorithm>
+#include <fcntl.h>
+#include "packets.h"
 
 using namespace std;
 
@@ -45,11 +46,11 @@ int main(int argc, char *argv[])
     char answer;
     ofstream outfile;
     struct sockaddr_in serv_addr;
-    string temp, temp3;
+    string temp, commandString, versionString, packetPiece;
     char buffer[1024] = { 0 };
     fd_set set;
     struct timeval timeout;
-
+    Packet primaryP;
 
 
 
@@ -74,7 +75,6 @@ int main(int argc, char *argv[])
         }
     }
 
-    string temp2 = argv[1];
 
     //1 & 4. Take user input
     cout << "Initial Variables have been auto checked as valid" << endl
@@ -99,16 +99,55 @@ int main(int argc, char *argv[])
     {
         port = stoi(argv[2]);
     }
+    bool isNum = true;
+    //Take version
+    do
+    {
+        cout << "What Packet Version would you like to you use?" << endl;
+        cin >> versionString;
 
-    cout << "What message would you like to send to the server?" << endl;
-    getline(cin,temp);
-    getline(cin,temp);
+        for (int i = 0; i < size(versionString); i++)
+        {
+            if(isdigit(versionString[i])) 
+            {
+                //Good
+                isNum = false;
+            }
+            else
+            {
+                isNum = true;
+                break;
+            }
+        }
+    } while (isNum);
+    cin.clear();
+    
+    //Take command
+    do
+    {
+    cout << "What command would you like to send to the server?" << endl;
+    cout << "1. LIGHTON" << endl;
+    cout << "2. LIGHTOFF" << endl;
+    cin >> answer;
+    } while (!cin.fail() && answer!='1' && answer!='2');
+    cin.clear();
+    
+    if (answer == '1') 
+    {
+        commandString = "LIGHTON";
+    }
+    else
+    {
+        commandString = "LIGHTOFF";
+    }
 
-    const char* message = temp.c_str();
-    temp3 = "./launchTCP.sh " + temp2 + " &";
-    const char* launcher = temp3.c_str();
-    //Launch TCPDUMP
-    //system(launcher);
+    //Create Hello Packet
+    temp = "HELLO";
+    primaryP.length = size(temp);
+    primaryP.type = 1;
+    primaryP.version = stoul(versionString);
+    copy(temp.begin(), temp.end(), begin(primaryP.message));
+    temp = to_string(primaryP.version) + ";" + to_string(primaryP.type) + ";" + to_string(primaryP.length) + ";" + temp;
 
     //2. Create Socket Object
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0 )
@@ -132,7 +171,6 @@ int main(int argc, char *argv[])
         cout << "Connection Failed Error, terminating program" << endl;
         return -1;
     }
-    cout << "Connection Successfull" << endl;
 
     FD_ZERO(&set);
     FD_SET(sock, &set);
@@ -141,10 +179,10 @@ int main(int argc, char *argv[])
     timeout.tv_usec = 0;
 
 
-
+    const char* message = temp.c_str();
     //5. Send Message
+    cout << "Sending HELLO Packet" << endl;
     send(sock, message, strlen(message), 0 );
-    cout << "Message Sent to server" << endl;
     //6. Recieve Message / Check for recieve
     rv = select(sock + 1, &set, NULL, NULL,  &timeout);
     if(rv == -1)
@@ -162,8 +200,29 @@ int main(int argc, char *argv[])
        valread = read(sock, buffer, 1024); 
     }
 
-    cout << "Message Recieved from Server:" << endl
-    << buffer << endl;
+    //Check for Hello Packet
+    temp = buffer;
+    istringstream ss(temp);
+    //Version
+    getline(ss, packetPiece, ';');
+    primaryP.version = stoul(packetPiece, NULL, 10);
+    //Type
+    getline(ss, packetPiece, ';');
+    primaryP.type = stoul(packetPiece, NULL, 10);
+    //Length
+    getline(ss, packetPiece, ';');
+    primaryP.length = stoul(packetPiece, NULL, 10);
+    //Message
+    getline(ss, packetPiece, ';');
+    memset(primaryP.message, 0, size(primaryP.message));
+    copy(packetPiece.begin(), packetPiece.end(), begin(primaryP.message));
+    cout << "Recieved Data: version: " + primaryP.version << " type: " << primaryP.type << " length: " << primaryP.length << endl;
+
+    if (primaryP.version != 17 && primaryP.type != 1)
+    {
+        cout << "Error: Wrong Packet recieved, not a HELLO :( , terminating program" << endl;
+        return -1;
+    }
     //7. Save Message
     outfile.open(argv[3], ios_base::app | ios_base::out);
     if(outfile.fail())
@@ -173,6 +232,12 @@ int main(int argc, char *argv[])
     }
     outfile << buffer << endl;
     outfile.close();
+
+    //Send Command Packet
+    primaryP.type = 2;
+    primaryP.length = size(commandString);
+    memset(primaryP.message, 0, size(primaryP.message));
+    copy(commandString.begin(), commandString.end(), begin(primaryP.message));
 
 
     //8.Close Socket

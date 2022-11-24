@@ -15,7 +15,7 @@ This is a C++20 makefile project [DESIGNED FOR UNIX SYSTEMS ON A UNIX SYSTEM].
     server.cpp is the C++ part of the program which must be compiled first
     start.sh will compile and launch the C++ code along with TCPDUMP at the same time
 
-To run simply invoke: ./start.sh <PORT> <LOGFILE-NAME> <Run-Iterations>(optional)
+To run simply invoke: ./start.sh <PORT> <LOGFILE-NAME>
 NOTE: Couldn't get flag implementation to work, so please use arguments as shown above
 
 NOTE2: Please create a file that is the name of your logfile supplied to the program. The program
@@ -31,7 +31,7 @@ Steps to run are:
 1. Extract project1.tar.xz
 2. run: sudo chmod u+x start.sh
 4. run: touch <LOGFILE-NAME>
-5. Launch: ./start.sh <PORT> <LOGFILE-NAME> <Run-Iterations>(optional)
+5. Launch: ./start.sh <PORT> <LOGFILE-NAME>
 
 Documentation:
 https://www.geeksforgeeks.org/socket-programming-cc/

@@ -2,7 +2,7 @@
 Author: Keaton Shelton
 Date: October 26th, 2022
 Language: C++20
-Inputs: a port (string to int), a logfile (string) and, optionally, a number of iterations (string to int)
+Inputs: a port (string to int) and a logfile (string) 
 Returns: A logfile containing message from server
 
 Abstract: This program is a server program that allows
@@ -13,6 +13,7 @@ Abstract: This program is a server program that allows
 
 Revisions:
 01ks - November 20th, 2020 - Original
+02ks - November 21st, 2020 - More progress, need to test
 */
 #include <stdio.h>
 #include <string.h>
@@ -28,6 +29,7 @@ Revisions:
 #include <sys/select.h>
 #include <vector>
 #include <algorithm>
+#include <fcntl.h>
 #include "packets.h"
 
 using namespace std;
@@ -45,66 +47,19 @@ int main(int argc, char *argv[])
     int opt = 1;
     int addrlen = sizeof(address);
     char buffer[1024] = {0};
-    bool cont = true, iterations = false;
-    string packetPiece;
+    bool RUN = true, command = false, reset = true;
+    string packetPiece, temp2;
     Packet recievedPacket;
-
-    string temp = "17;1;5;HELLO";
-    istringstream ss(temp);
-    //Version
-    getline(ss, packetPiece, ';');
-    recievedPacket.version = stoul(packetPiece, NULL, 10);
-    //Type
-    getline(ss, packetPiece, ';');
-    recievedPacket.type = stoul(packetPiece, NULL, 10);
-    //Length
-    getline(ss, packetPiece, ';');
-    recievedPacket.length = stoul(packetPiece, NULL, 10);
-    //Message
-    getline(ss, packetPiece, ';');
-    memset(recievedPacket.message, 0, size(recievedPacket.message));
-    copy(packetPiece.begin(), packetPiece.end(), begin(recievedPacket.message));
-
-    cout << recievedPacket.version << endl;
-    cout << recievedPacket.type << endl;
-    cout << recievedPacket.length << endl;
-    cout << recievedPacket.message << endl;
-
-
-
-
-    while(1);
-
-    //BLOCK
 
     //Input Verification
     if(argc == 3) 
     {
         //Good
-        iterations = false;
-    }
-    else if(argc == 4)
-    {
-        //Good
-        for (int i = 0; i < strlen(argv[3]); i++)
-        {
-            if(isdigit(argv[3][i])) 
-            {
-                //Good
-                iterations = true;
-            }
-            else
-            {
-                cout << "Error: Wrong input arguments, please enter:" << endl
-                << "./start PORT LOGFILE RUN-ITERATIONS(OPTIONAL)" << endl;
-                return -1;
-            }
-        }
     }
     else
     {
         cout << "Error: Wrong input arguments, please enter:" << endl
-        << "./start PORT LOGFILE RUN-ITERATIONS(OPTIONAL)" << endl;
+        << "./start PORT LOGFILE" << endl;
         return -1;
     }
     for (int i = 0; i < strlen(argv[1]); i++)
@@ -116,7 +71,7 @@ int main(int argc, char *argv[])
         else
         {
             cout << "Error: Wrong input arguments, please enter:" << endl
-            << "./start PORT LOGFILE RUN-ITERATIONS(OPTIONAL)" << endl;
+            << "./start PORT LOGFILE" << endl;
             return -1;
         }
     }
@@ -124,14 +79,6 @@ int main(int argc, char *argv[])
     << "Please validate if these are correct:" << endl
     << "Port: " << argv[1] << endl
     << "Logfile Name: " << argv[2] << endl;
-    if(iterations)
-    {
-        cout << "Run Iterations: " << argv[3] << endl << endl;
-    }
-    else
-    {
-        cout << "Run Iterations: " << "Unlimited" << endl << endl;
-    }
     //Verify Input
     do
     {
@@ -150,47 +97,47 @@ int main(int argc, char *argv[])
         port = stoi(argv[1]);
         MAX_ITERATIONS = stoi(argv[3]);
     }
-
-
-    //Create Socket Object
-    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
-    {
-        cout << "Socket Creation Error" << endl;
-        return -1;
-    }
-
-    //Attach Port to Socket
-    if(setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt)))
-    {
-        cout << "Error attaching port to socket" << endl;
-        return -1;
-    }
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY;
     address.sin_port = htons(port);
 
-    //Bind Socket
-    if (bind(server_fd, (struct sockaddr*)&address, sizeof(address)) < 0)
-    {
-        cout << "Error binding socket" << endl;
-        return -1;
-    }
-
-    int counter = 0;
-    //Main Loop for listening
     do
     {
-        //Listen for packets, max queue 3
-        if (listen(server_fd, 3) < 0) 
+        if (reset)
         {
-            cout << "Listening Error" << endl;
-            return -1;
-        }
-        //Get first connection from queue
-        if ((new_socket = accept(server_fd, (struct sockaddr*)&address, (socklen_t*)&addrlen)) < 0)
-        {
-            cout << "Packet Queue Error" << endl;
-            return -1;
+            //Create Socket Object
+            if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+            {
+                cout << "Socket Creation Error" << endl;
+                return -1;
+            }
+
+            //Attach Port to Socket
+            if(setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt)))
+            {
+                cout << "Error attaching port to socket" << endl;
+                return -1;
+            }
+
+            //Bind Socket
+            if (bind(server_fd, (struct sockaddr*)&address, sizeof(address)) < 0)
+            {
+                cout << "Error binding socket" << endl;
+                return -1;
+            }
+            //Listen for packets, max queue 3
+            if (listen(server_fd, 3) < 0) 
+            {
+                cout << "Listening Error" << endl;
+                return -1;
+            }
+            //Get first connection from queue
+            if ((new_socket = accept(server_fd, (struct sockaddr*)&address, (socklen_t*)&addrlen)) < 0)
+            {
+                cout << "Packet Queue Error" << endl;
+                return -1;
+            }
+            reset = false;
         }
         //Reset Buffer
         memset(buffer, 0, sizeof(buffer));
@@ -225,37 +172,139 @@ int main(int argc, char *argv[])
         }
         outFile << buffer << endl;
         outFile.close();
-        if(recievedPacket.version == 17)
+        if(recievedPacket.version == 17 && recievedPacket.type == 1)
         {
-            //Begin 2nd stage
-            recievedPacket.version = 17;
-            recievedPacket.type = 1;
-            temp = "HELLO";
-            copy(temp.begin(),temp.end(), size(temp));
+            //Begin 1st stage
+            cout << "Version Accepted" << endl;
+            //Setup Packet
+            ostringstream convert;
+            for (int x = 0; x < recievedPacket.length; x++)
+            {
+                convert << recievedPacket.message[x];
+            }
+            temp = convert.str();
+            if (temp.find("Hello") != string::npos)
+            {
+                cout << "Command Accepted: Hello" << endl;
+                //Setup Packet
+                temp = "Hello";
+                copy(temp.begin(),temp.end(), begin(recievedPacket.message));
+                recievedPacket.length = size(temp);
+                temp = to_string(recievedPacket.version) + ";" + to_string(recievedPacket.type) + ";" + to_string(recievedPacket.length) + ";" + temp;
+                //Send Reply
+                send(new_socket, temp.c_str(), strlen(temp.c_str()), 0);
+                //Goto stage 2
+                command = true;
+            }
+            else if (temp.find("LIGHTON") != string::npos && command)
+            {
+                cout << "Command Accepted: LIGHTON" << endl;
+                //Setup Packet
+                temp = "LIGHTON";
+                copy(temp.begin(),temp.end(), begin(recievedPacket.message));
+                recievedPacket.length = size(temp);
+                temp = to_string(recievedPacket.version) + ";" + to_string(recievedPacket.type) + ";" + to_string(recievedPacket.length) + ";" + temp;
+                //Send Reply
+                send(new_socket, temp.c_str(), strlen(temp.c_str()), 0);
+                //Goto stage 3
+                command = false;
+            }
+            else
+            {
+                cout << "Command Rejected" << endl;
+                //Setup Packet
+                temp = "Command Rejected";
+                copy(temp.begin(),temp.end(), begin(recievedPacket.message));
+                recievedPacket.length = size(temp);
+                temp = to_string(recievedPacket.version) + ";" + to_string(recievedPacket.type) + ";" + to_string(recievedPacket.length) + ";" + temp;
+                //Send Reply
+                send(new_socket, temp.c_str(), strlen(temp.c_str()), 0);
+                //Goto stage 3
+                command = false;
+            }
+            copy(temp.begin(),temp.end(), begin(recievedPacket.message));
             recievedPacket.length = size(temp);
             //Send Reply
-            cout << "Sending Message: " << "HELLO" << endl;
-            cout << "Message Count: " << counter << endl << endl;
-            //send(new_socket, message, strlen(message), 0);
+            send(new_socket, temp.c_str(), strlen(temp.c_str()), 0);
+            //Allow for stage 2
+            command = true;
+        }
+        else if(recievedPacket.version == 17 && recievedPacket.type == 2) 
+        {
+            //Begin 2nd stage
+            cout << "Version Accepted" << endl;
+            //Check for Command
+            ostringstream convert;
+            for (int x = 0; x < recievedPacket.length; x++)
+            {
+                convert << recievedPacket.message[x];
+            }
+            temp = convert.str();
+            if (temp.find("Hello") != string::npos)
+            {
+                cout << "Command Accepted: Hello" << endl;
+                //Setup Packet
+                temp = "Hello";
+                copy(temp.begin(),temp.end(), begin(recievedPacket.message));
+                recievedPacket.length = size(temp);
+                temp = to_string(recievedPacket.version) + ";" + to_string(recievedPacket.type) + ";" + to_string(recievedPacket.length) + ";" + temp;
+                //Send Reply
+                send(new_socket, temp.c_str(), strlen(temp.c_str()), 0);
+                //Goto stage 3
+                command = true;
+            }
+            else if (temp.find("LIGHTOFF") != string::npos && command)
+            {
+                cout << "Command Accepted: LIGHTOFF" << endl;
+                //Setup Packet
+                temp = "Success";
+                copy(temp.begin(),temp.end(), begin(recievedPacket.message));
+                recievedPacket.length = size(temp);
+                temp = to_string(recievedPacket.version) + ";" + to_string(recievedPacket.type) + ";" + to_string(recievedPacket.length) + ";" + temp;
+                //Send Reply
+                send(new_socket, temp.c_str(), strlen(temp.c_str()), 0);
+                //Return to stage 1
+                command = false;
+            }
+            else if (temp.find("Disconnect") != string::npos)
+            {
+                cout << "Command Accepted: Disconnect" << endl;
+                cout << "Terminating Connection" << endl;
+                //Close Socket
+                close(new_socket);
+                reset = true;
+            }
+            else
+            {
+                //Failed 2nd stage
+                cout << "Command Rejected" << endl;
+                //Setup Packet
+                temp = "ERROR";
+                copy(temp.begin(),temp.end(), begin(recievedPacket.message));
+                recievedPacket.type = 3;
+                recievedPacket.length = size(temp);
+                temp = to_string(recievedPacket.version) + ";" + to_string(recievedPacket.type) + ";" + to_string(recievedPacket.length) + ";" + temp;
+                //Send Reply
+                send(new_socket, temp.c_str(), strlen(temp.c_str()), 0);
+                command = false;
+            }
         }
         else
         {
             //Failed 1st stage
-
-            //Increase Count
-            counter++;
             //Bad message
-            cout << "Bad message recieved! Not sending a Reply" << endl;
-            cout << "Message Count: " << counter << endl << endl;
+            cout << "Bad message recieved or out of order instructions, resetting to listening mode" << endl;
+            cout << "Command Rejected" << endl;
+            //Setup Packet
+            temp = "ERROR";
+            copy(temp.begin(),temp.end(), begin(recievedPacket.message));
+            recievedPacket.type = 3;
+            recievedPacket.length = size(temp);
+            //Send Reply
+            send(new_socket, temp.c_str(), strlen(temp.c_str()), 0);
+            command = false;
         }
-        if(iterations) 
-        {
-            if (counter == MAX_ITERATIONS)
-            {
-                cont = false;
-            }
-        }
-    } while (cont);
+    } while (RUN);
     //Shutdown
     close(new_socket);
     shutdown(server_fd, SHUT_RDWR);
