@@ -41,7 +41,7 @@ int main(int argc, char *argv[])
     try
     {
     //Setup Variables
-    int sock = 0, valread, client_fd, rv;
+    int sock = 0, valread, client_fd, rv, client_fd2, sock2=0;
     uint16_t port;
     char answer;
     ofstream outfile;
@@ -104,7 +104,8 @@ int main(int argc, char *argv[])
     do
     {
         cout << "What Packet Version would you like to you use?" << endl;
-        cin >> versionString;
+        getline(cin, versionString);
+        getline(cin, versionString);
 
         for (int i = 0; i < size(versionString); i++)
         {
@@ -135,16 +136,17 @@ int main(int argc, char *argv[])
     if (answer == '1') 
     {
         commandString = "LIGHTON";
+        primaryP.type = 1;
     }
     else
     {
         commandString = "LIGHTOFF";
+        primaryP.type = 2;
     }
 
     //Create Hello Packet
     temp = "HELLO";
-    primaryP.length = size(temp);
-    primaryP.type = 1;
+    primaryP.length = temp.size();
     primaryP.version = stoul(versionString);
     copy(temp.begin(), temp.end(), begin(primaryP.message));
     temp = to_string(primaryP.version) + ";" + to_string(primaryP.type) + ";" + to_string(primaryP.length) + ";" + temp;
@@ -200,6 +202,15 @@ int main(int argc, char *argv[])
        valread = read(sock, buffer, 1024); 
     }
 
+    //Save second recieved packet
+    outfile.open(argv[3], ios_base::app | ios_base::out);
+    if(outfile.fail())
+    {
+        cout << "Error Finding file, terminating program" << endl;
+        return -1;
+    }
+    outfile << buffer << endl;
+    outfile.close();
     //Check for Hello Packet
     temp = buffer;
     istringstream ss(temp);
@@ -214,14 +225,20 @@ int main(int argc, char *argv[])
     primaryP.length = stoul(packetPiece, NULL, 10);
     //Message
     getline(ss, packetPiece, ';');
-    memset(primaryP.message, 0, size(primaryP.message));
+    memset(primaryP.message, 0, sizeof(primaryP.message));
     copy(packetPiece.begin(), packetPiece.end(), begin(primaryP.message));
-    cout << "Recieved Data: version: " + primaryP.version << " type: " << primaryP.type << " length: " << primaryP.length << endl;
+    cout << "Recieved Data: version: " << primaryP.version << " type: " << primaryP.type << " length: " << primaryP.length << endl;
 
-    if (primaryP.version != 17 && primaryP.type != 1)
+    if (primaryP.version != 17 && packetPiece != (string)"HELLO")
     {
-        cout << "Error: Wrong Packet recieved, not a HELLO :( , terminating program" << endl;
+        cout << "Error: Wrong packet version or response recieved, terminating program" << endl;
         return -1;
+    }
+    else
+    {
+        cout << "VERSION ACCEPTED" << endl;
+        cout << "Recieved Message HELLO" << endl;
+        cout << "Sending Command: " << commandString << endl;
     }
     //7. Save Message
     outfile.open(argv[3], ios_base::app | ios_base::out);
@@ -232,15 +249,113 @@ int main(int argc, char *argv[])
     }
     outfile << buffer << endl;
     outfile.close();
+    //Reset Conn
+    close(sock);
+    close(client_fd);
+    sleep(2);
+    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0 )
+    {
+        cout << endl << "Socket Creation Error, exiting program" << endl;
+        return -1;
+    }
 
+    //3. Connect to server
+    if ((client_fd = connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr))) < 0)
+    {
+        cout << "Connection Failed Error, terminating program" << endl;
+        return -1;
+    }
+    
     //Send Command Packet
-    primaryP.type = 2;
-    primaryP.length = size(commandString);
-    memset(primaryP.message, 0, size(primaryP.message));
+    primaryP.length = commandString.size();
+    memset(primaryP.message, 0, sizeof(primaryP.message));
     copy(commandString.begin(), commandString.end(), begin(primaryP.message));
+    temp = to_string(primaryP.version) + ";" + to_string(primaryP.type) + ";" + to_string(primaryP.length) + ";" + commandString;
+    message = temp.c_str();
+    send(sock, message, strlen(message), 0 );
+    //6. Recieve Message / Check for recieve
+    memset(buffer, 0, sizeof(buffer));
+    rv = select(sock + 1, &set, NULL, NULL,  &timeout);
+    if(rv == -1)
+    {
+        cout << "Error has occured, terminating program" << endl;
+        return -1;
+    }
+    else if(rv == 0)
+    {
+        cout << "Timeout has occured, no message recieved, terminating program" << endl;
+        return -1;
+    }
+    else
+    {
+       valread = read(sock, buffer, 1024); 
+    }
+    //Save second recieved packet
+    outfile.open(argv[3], ios_base::app | ios_base::out);
+    if(outfile.fail())
+    {
+        cout << "Error finding file, terminating program" << endl;
+        return -1;
+    }
+    outfile << buffer << endl;
+    outfile.close();
+    //Reset Conn
+    close(sock);
+    close(client_fd);
+    sleep(2);
+    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0 )
+    {
+        cout << endl << "Socket Creation Error, exiting program" << endl;
+        return -1;
+    }
 
+    //3. Connect to server
+    if ((client_fd = connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr))) < 0)
+    {
+        cout << "Connection Failed Error, terminating program" << endl;
+        return -1;
+    }
+    
+    //Check for command status Packet
+    temp = buffer;
+    ss.clear();
+    ss.str(temp);
+    //Version
+    getline(ss, packetPiece, ';');
+    primaryP.version = stoul(packetPiece, NULL, 10);
+    //Type
+    getline(ss, packetPiece, ';');
+    primaryP.type = stoul(packetPiece, NULL, 10);
+    //Length
+    getline(ss, packetPiece, ';');
+    primaryP.length = stoul(packetPiece, NULL, 10);
+    //Message
+    getline(ss, packetPiece, ';');
+    memset(primaryP.message, 0, sizeof(primaryP.message));
+    copy(packetPiece.begin(), packetPiece.end(), begin(primaryP.message));
+    cout << "Recieved Data: version: " + primaryP.version << " type: " << primaryP.type << " length: " << primaryP.length << endl;
+    if (primaryP.version != 17 && packetPiece != (string)"SUCCESS")
+    {
+        cout << "Error: Wrong packet version or response recieved, terminating program" << endl;
+        return -1;
+    }
+    else
+    {
+        cout << "VERSION ACCEPTED" << endl;
+        cout << "Recieved Message: " << packetPiece << endl;
+        cout << "Command Successful" << endl;
+        cout << "Closing Socket" << endl;
+    }
+    temp = "KILL";
+    primaryP.length = temp.size();
+    memset(primaryP.message, 0, sizeof(primaryP.message));
+    copy(temp.begin(), temp.end(), begin(primaryP.message));
+    temp = to_string(primaryP.version) + ";" + to_string(primaryP.type) + ";" + to_string(primaryP.length) + ";" + temp;
+    message = temp.c_str();
+    send(sock, message, strlen(message), 0 );
 
     //8.Close Socket
+    close(sock);
     close(client_fd);
 
     return 0; 

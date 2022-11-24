@@ -95,7 +95,6 @@ int main(int argc, char *argv[])
     else
     {
         port = stoi(argv[1]);
-        MAX_ITERATIONS = stoi(argv[3]);
     }
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY;
@@ -111,33 +110,31 @@ int main(int argc, char *argv[])
                 cout << "Socket Creation Error" << endl;
                 return -1;
             }
-
             //Attach Port to Socket
             if(setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt)))
             {
                 cout << "Error attaching port to socket" << endl;
                 return -1;
             }
-
             //Bind Socket
             if (bind(server_fd, (struct sockaddr*)&address, sizeof(address)) < 0)
             {
                 cout << "Error binding socket" << endl;
                 return -1;
             }
-            //Listen for packets, max queue 3
-            if (listen(server_fd, 3) < 0) 
-            {
-                cout << "Listening Error" << endl;
-                return -1;
-            }
-            //Get first connection from queue
-            if ((new_socket = accept(server_fd, (struct sockaddr*)&address, (socklen_t*)&addrlen)) < 0)
-            {
-                cout << "Packet Queue Error" << endl;
-                return -1;
-            }
             reset = false;
+        }
+        //Listen for packets, max queue 3
+        if (listen(server_fd, 3) < 0)
+        {
+            cout << "Listening Error" << endl;
+            return -1;
+        }
+        //Get first connection from queue
+        if ((new_socket = accept(server_fd, (struct sockaddr*)&address, (socklen_t*)&addrlen)) < 0)
+        {
+            cout << "Packet Queue Error" << endl;
+            return -1;
         }
         //Reset Buffer
         memset(buffer, 0, sizeof(buffer));
@@ -158,7 +155,7 @@ int main(int argc, char *argv[])
         recievedPacket.length = stoul(packetPiece, NULL, 10);
         //Message
         getline(ss, packetPiece, ';');
-        memset(recievedPacket.message, 0, size(recievedPacket.message));
+        memset(recievedPacket.message, 0, sizeof(recievedPacket.message));
         copy(packetPiece.begin(), packetPiece.end(), begin(recievedPacket.message));
         //Output to screen
         cout << "Recieved Connection from (IP,PORT): (" << inet_ntoa(address.sin_addr) << ", " << ntohs(address.sin_port) << ")" << endl;
@@ -183,13 +180,13 @@ int main(int argc, char *argv[])
                 convert << recievedPacket.message[x];
             }
             temp = convert.str();
-            if (temp.find("Hello") != string::npos)
+            if (temp.find("HELLO") != string::npos)
             {
-                cout << "Command Accepted: Hello" << endl;
+                cout << "Command Accepted: HELLO" << endl;
                 //Setup Packet
-                temp = "Hello";
+                temp = "HELLO";
                 copy(temp.begin(),temp.end(), begin(recievedPacket.message));
-                recievedPacket.length = size(temp);
+                recievedPacket.length = temp.size();
                 temp = to_string(recievedPacket.version) + ";" + to_string(recievedPacket.type) + ";" + to_string(recievedPacket.length) + ";" + temp;
                 //Send Reply
                 send(new_socket, temp.c_str(), strlen(temp.c_str()), 0);
@@ -200,13 +197,22 @@ int main(int argc, char *argv[])
             {
                 cout << "Command Accepted: LIGHTON" << endl;
                 //Setup Packet
-                temp = "LIGHTON";
+                temp = "SUCCESS";
                 copy(temp.begin(),temp.end(), begin(recievedPacket.message));
-                recievedPacket.length = size(temp);
+                recievedPacket.length = temp.size();
                 temp = to_string(recievedPacket.version) + ";" + to_string(recievedPacket.type) + ";" + to_string(recievedPacket.length) + ";" + temp;
                 //Send Reply
-                send(new_socket, temp.c_str(), strlen(temp.c_str()), 0);
-                //Goto stage 3
+                int test = send(new_socket, temp.c_str(), strlen(temp.c_str()), 0);
+                cout << test << endl;
+                //Goto stage 1
+                command = false;
+            }
+            else if (temp.find("KILL") != string::npos)
+            {
+                cout << "Command Accepted: Disconnect" << endl;
+                cout << "Terminating Connection" << endl;
+                //Close Socket
+                reset = true;
                 command = false;
             }
             else
@@ -215,19 +221,13 @@ int main(int argc, char *argv[])
                 //Setup Packet
                 temp = "Command Rejected";
                 copy(temp.begin(),temp.end(), begin(recievedPacket.message));
-                recievedPacket.length = size(temp);
+                recievedPacket.length = temp.size();
                 temp = to_string(recievedPacket.version) + ";" + to_string(recievedPacket.type) + ";" + to_string(recievedPacket.length) + ";" + temp;
                 //Send Reply
                 send(new_socket, temp.c_str(), strlen(temp.c_str()), 0);
-                //Goto stage 3
+                //Goto stage 1
                 command = false;
             }
-            copy(temp.begin(),temp.end(), begin(recievedPacket.message));
-            recievedPacket.length = size(temp);
-            //Send Reply
-            send(new_socket, temp.c_str(), strlen(temp.c_str()), 0);
-            //Allow for stage 2
-            command = true;
         }
         else if(recievedPacket.version == 17 && recievedPacket.type == 2) 
         {
@@ -240,13 +240,13 @@ int main(int argc, char *argv[])
                 convert << recievedPacket.message[x];
             }
             temp = convert.str();
-            if (temp.find("Hello") != string::npos)
+            if (temp.find("HELLO") != string::npos)
             {
-                cout << "Command Accepted: Hello" << endl;
+                cout << "Command Accepted: HELLO" << endl;
                 //Setup Packet
-                temp = "Hello";
+                temp = "HELLO";
                 copy(temp.begin(),temp.end(), begin(recievedPacket.message));
-                recievedPacket.length = size(temp);
+                recievedPacket.length = temp.size();
                 temp = to_string(recievedPacket.version) + ";" + to_string(recievedPacket.type) + ";" + to_string(recievedPacket.length) + ";" + temp;
                 //Send Reply
                 send(new_socket, temp.c_str(), strlen(temp.c_str()), 0);
@@ -257,22 +257,23 @@ int main(int argc, char *argv[])
             {
                 cout << "Command Accepted: LIGHTOFF" << endl;
                 //Setup Packet
-                temp = "Success";
+                temp = "SUCCESS";
                 copy(temp.begin(),temp.end(), begin(recievedPacket.message));
-                recievedPacket.length = size(temp);
+                recievedPacket.length = temp.size();
                 temp = to_string(recievedPacket.version) + ";" + to_string(recievedPacket.type) + ";" + to_string(recievedPacket.length) + ";" + temp;
                 //Send Reply
                 send(new_socket, temp.c_str(), strlen(temp.c_str()), 0);
                 //Return to stage 1
                 command = false;
             }
-            else if (temp.find("Disconnect") != string::npos)
+            else if (temp.find("KILL") != string::npos)
             {
                 cout << "Command Accepted: Disconnect" << endl;
                 cout << "Terminating Connection" << endl;
                 //Close Socket
                 close(new_socket);
                 reset = true;
+                command = false;
             }
             else
             {
@@ -282,7 +283,7 @@ int main(int argc, char *argv[])
                 temp = "ERROR";
                 copy(temp.begin(),temp.end(), begin(recievedPacket.message));
                 recievedPacket.type = 3;
-                recievedPacket.length = size(temp);
+                recievedPacket.length = temp.size();
                 temp = to_string(recievedPacket.version) + ";" + to_string(recievedPacket.type) + ";" + to_string(recievedPacket.length) + ";" + temp;
                 //Send Reply
                 send(new_socket, temp.c_str(), strlen(temp.c_str()), 0);
@@ -299,11 +300,13 @@ int main(int argc, char *argv[])
             temp = "ERROR";
             copy(temp.begin(),temp.end(), begin(recievedPacket.message));
             recievedPacket.type = 3;
-            recievedPacket.length = size(temp);
+            recievedPacket.length = temp.size();
             //Send Reply
             send(new_socket, temp.c_str(), strlen(temp.c_str()), 0);
             command = false;
         }
+        //Cycle for next packet
+        //close(new_socket);
     } while (RUN);
     //Shutdown
     close(new_socket);
