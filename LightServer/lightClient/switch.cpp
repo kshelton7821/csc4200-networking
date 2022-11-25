@@ -252,7 +252,8 @@ int main(int argc, char *argv[])
     //Reset Conn
     close(sock);
     close(client_fd);
-    sleep(2);
+    sleep(1);
+    //Create Socket Object
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0 )
     {
         cout << endl << "Socket Creation Error, exiting program" << endl;
@@ -265,7 +266,9 @@ int main(int argc, char *argv[])
         cout << "Connection Failed Error, terminating program" << endl;
         return -1;
     }
-    
+    //Reset Set
+    FD_ZERO(&set);
+    FD_SET(sock, &set);
     //Send Command Packet
     primaryP.length = commandString.size();
     memset(primaryP.message, 0, sizeof(primaryP.message));
@@ -290,6 +293,8 @@ int main(int argc, char *argv[])
     {
        valread = read(sock, buffer, 1024); 
     }
+    
+    //valread = read(sock, buffer, 1024);
     //Save second recieved packet
     outfile.open(argv[3], ios_base::app | ios_base::out);
     if(outfile.fail())
@@ -302,7 +307,9 @@ int main(int argc, char *argv[])
     //Reset Conn
     close(sock);
     close(client_fd);
-    sleep(2);
+    sleep(1);
+    FD_ZERO(&set);
+    FD_SET(sock, &set);
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0 )
     {
         cout << endl << "Socket Creation Error, exiting program" << endl;
@@ -315,7 +322,7 @@ int main(int argc, char *argv[])
         cout << "Connection Failed Error, terminating program" << endl;
         return -1;
     }
-    
+
     //Check for command status Packet
     temp = buffer;
     ss.clear();
@@ -346,6 +353,8 @@ int main(int argc, char *argv[])
         cout << "Command Successful" << endl;
         cout << "Closing Socket" << endl;
     }
+
+    //Send Close Socket
     temp = "KILL";
     primaryP.length = temp.size();
     memset(primaryP.message, 0, sizeof(primaryP.message));
@@ -353,11 +362,8 @@ int main(int argc, char *argv[])
     temp = to_string(primaryP.version) + ";" + to_string(primaryP.type) + ";" + to_string(primaryP.length) + ";" + temp;
     message = temp.c_str();
     send(sock, message, strlen(message), 0 );
-
-    //8.Close Socket
     close(sock);
     close(client_fd);
-
     return 0; 
     }
     catch(const exception& e)

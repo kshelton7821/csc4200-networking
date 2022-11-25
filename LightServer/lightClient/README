@@ -3,7 +3,7 @@ This zip folder contains:
 2. logfile
 3. makefile
 4. client.sh
-5. project1.pcap
+5. project3.pcap
 
 REQUIRED DEPENDENCIES:
 TCPDUMP
@@ -11,11 +11,11 @@ make
 g++
 
 
-This is a C++20 makefile project [DESIGNED FOR LINUX SYSTEMS]. To compile go to the working directory and type: make
-    This will compile program.cpp which is the C++ part of this program
-    client.sh will launch the C++ code along with TCPDUMP at the same time
+This is a C++20 makefile project [DESIGNED FOR UNIX SYSTEMS ON A UNIX SYSTEM].
+    This will compile switch.cpp which is the C++ part of this program
+    client.sh will compile and launch the C++ code along with TCPDUMP
+   
 
-To run simply invoke: ./client <Server IP> <PORT> <LOGFILE NAME>
 NOTE: user may have to use sudo chmod u+x client.sh
 NOTE2: Please create a file that is the name of your logfile supplied to the program. The program
     will look for a file by that name.
@@ -26,12 +26,19 @@ Had to deviate from project specifications slightly as I could not figure out ho
 ./client.sh <Server IP> <PORT> <LOGFILE NAME>
 
 
-In Short steps to run are:
-1. Extract project1.tar.xz
-2. run: sudo chmod u+x client.sh
-3. run make: make
+In Short steps to run w/TCPDUMP are:
+1. Extract project3.tar.xz
+2. Go to subdirectory: ./lightClient
+3. run: sudo chmod u+x client.sh
 4. run: touch <LOGFILE NAME>
 5. Launch: ./client.sh <Server IP> <PORT> <LOGFILE NAME>
+
+In Short steps to run w/out TCPDUMP are:
+1. Extract project3.tar.xz
+2. Go to subdirectory: ./lightClient
+3. run: make
+5. run: touch <LOGFILE NAME>
+6. Launch: ./switch <Server IP> <PORT> <LOGFILE NAME>
 
 Documentation:
 https://www.geeksforgeeks.org/file-handling-c-classes/
