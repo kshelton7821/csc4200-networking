@@ -1,0 +1,42 @@
+This zip folder contains:
+1. program.cpp
+2. logfile
+3. makefile
+4. client.sh
+5. project3.pcap
+
+REQUIRED DEPENDENCIES:
+TCPDUMP
+make
+g++
+
+
+This is a C++20 makefile project [DESIGNED FOR UNIX SYSTEMS ON A UNIX SYSTEM].
+    switch.cpp is the C++ part of the program which must be compiled first
+    start.sh will compile and launch the C++ code along with TCPDUMP at the same time
+
+NOTE: Couldn't get flag implementation to work, so please use arguments as shown below
+
+NOTE2: Please create a file that is the name of your logfile supplied to the program. The program
+    will look for a file by that name and exit if none found.
+
+
+How to use:
+
+Steps to run w/TCPDUMP are:
+1. Extract project3.tar.
+2. Go to subdirectory: ./lightServer
+3. run: sudo chmod u+x start.sh
+4. run: touch <LOGFILE-NAME>
+5. Launch: ./start.sh <PORT> <LOGFILE-NAME>
+
+Steps to run w/out TCPDUMP are:
+1. Extract project3.tar.xz
+2. Go to subdirectory: ./lightServer
+3. run: make
+4. run: touch <LOGFILE-NAME>
+5. Launch: ./server <PORT> <LOGFILE-NAME>
+
+Documentation:
+https://www.geeksforgeeks.org/socket-programming-cc/
+https://www.geeksforgeeks.org/socket-programming-in-cc-handling-multiple-clients-on-server-without-multi-threading/?ref=lbp

@@ -2,22 +2,17 @@
 Author: Keaton Shelton
 Date: October 26th, 2022
 Language: C++20
-Inputs: a server ip (string), a port (string to int), and a logfile (string)
+Inputs: a port (string to int), a logfile (string) and, optionally, a number of iterations (string to int)
 Returns: A logfile containing message from server
 
-Abstract: This program is a client program that allows
-    a user to enter a server ip, a port, and a logfile name at launch.
+Abstract: This program is a server program that allows
+    a user to enter a port, a logfile name, and number of run iterations at launch.
     It then will valilate the users input. At that point the program
-    will then take the users message, verify message, and finally send.
-    The program will then await the servers response.
-
-    Note: Order of execution specified by ProjectAssignment1 has been changed for 
-        small optimizations during connection to shorten connection time
+    will then wait for incoming packets and respond if keyword is met.
+    The program will then await the clients response.
 
 Revisions:
-01ks - October 26th, 2022 - Original
-02ks - October 27th, 2022 - Finish Parts 4 -- 6
-03ks - October 27th, 2022 - Cleanup code
+01ks - November 17th, 2020 - Original
 */
 #include <stdio.h>
 #include <string.h>
